@@ -73,7 +73,9 @@ export default function WalletConnect() {
     });
   }
 
-  const phantomDeepLink = `https://phantom.app/ul/browse/${encodeURIComponent(window.location.origin)}`;
+  // Construct deep links
+  const phantomProtocolUrl = `phantom://browse/${encodeURIComponent(window.location.origin)}`;
+  const phantomWebUrl = `https://phantom.app/ul/browse/${encodeURIComponent(window.location.origin)}`;
 
   return (
     <Card className="w-full max-w-md mx-auto mt-8">
@@ -97,9 +99,16 @@ export default function WalletConnect() {
           </p>
           {isMobile && (
             <a 
-              href={phantomDeepLink}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={phantomProtocolUrl}
+              onClick={(e) => {
+                e.preventDefault();
+                // Try to open the app directly first
+                window.location.href = phantomProtocolUrl;
+                // If app doesn't open within 1 second, redirect to app store/website
+                setTimeout(() => {
+                  window.location.href = phantomWebUrl;
+                }, 1000);
+              }}
               className="text-sm text-primary hover:underline flex items-center gap-2"
             >
               Open in Phantom App
