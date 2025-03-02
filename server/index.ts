@@ -6,6 +6,7 @@ import { storage } from "./storage";
 import session from "express-session";
 import passport from "passport";
 import path from "path";
+import fs from "fs";
 import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
 
