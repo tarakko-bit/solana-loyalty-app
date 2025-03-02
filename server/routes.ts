@@ -13,9 +13,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/login", async (req, res, next) => {
     try {
       const { username, password, totpCode } = loginSchema.parse(req.body);
-      
-      passport.authenticate("local", (err, admin, info) => {
-        if (err) return next(err);
+
+      passport.authenticate("local", (error: Error | null, admin: Express.User | false, info: { message?: string; requires2FA?: boolean }) => {
+        if (error) return next(error);
         if (!admin) return res.status(401).json({ message: info.message });
 
         if (info?.requires2FA) {
@@ -39,8 +39,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.logActivity({
             adminId: admin.id,
             action: "login",
-            ipAddress: req.ip,
+            ipAddress: req.ip || null,
             timestamp: new Date(),
+            details: `Admin ${admin.username} logged in`
           });
 
           res.json(admin);
@@ -56,8 +57,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.logActivity({
         adminId: req.user.id,
         action: "logout",
-        ipAddress: req.ip,
+        ipAddress: req.ip || null,
         timestamp: new Date(),
+        details: `Admin ${req.user.username} logged out`
       });
     }
 
@@ -86,8 +88,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await storage.logActivity({
       adminId: admin.id,
       action: "password_change",
-      ipAddress: req.ip,
+      ipAddress: req.ip || null,
       timestamp: new Date(),
+      details: `Admin ${admin.username} changed password`
     });
 
     res.sendStatus(200);
@@ -105,8 +108,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await storage.logActivity({
       adminId: req.user.id,
       action: "2fa_enabled",
-      ipAddress: req.ip,
+      ipAddress: req.ip || null,
       timestamp: new Date(),
+      details: `Admin ${req.user.username} enabled 2FA`
     });
 
     res.json({ secret });

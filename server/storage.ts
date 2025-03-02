@@ -12,11 +12,11 @@ export interface IStorage {
   createAdmin(admin: InsertAdmin): Promise<Admin>;
   updateAdmin(id: number, data: Partial<Admin>): Promise<Admin>;
   logActivity(log: Omit<ActivityLog, "id">): Promise<ActivityLog>;
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
 
   constructor() {
     this.sessionStore = new MemoryStore({

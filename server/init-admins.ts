@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import { db } from "./db";
 import { admins } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 const PREDEFINED_ADMINS = {
   nginx: "#Nx2025@Admin$",

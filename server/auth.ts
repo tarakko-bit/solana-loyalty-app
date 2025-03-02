@@ -55,7 +55,7 @@ export async function setupAuth(app: Express) {
   app.use(passport.session());
 
   passport.use(
-    new LocalStrategy(async (username, password, done) => {
+    new LocalStrategy(async (username: string, password: string, done) => {
       try {
         const admin = await storage.getAdminByUsername(username);
         if (!admin) return done(null, false, { message: "Invalid credentials" });
@@ -68,18 +68,18 @@ export async function setupAuth(app: Express) {
         if (!isValid) {
           const failedAttempts = (admin.failedAttempts || 0) + 1;
           const updates: Partial<Admin> = { failedAttempts };
-          
+
           if (failedAttempts >= 5) {
             updates.lockedUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
           }
-          
+
           await storage.updateAdmin(admin.id, updates);
           return done(null, false, { message: "Invalid credentials" });
         }
 
         if (admin.twoFactorEnabled) {
           // Handle 2FA verification in a separate step
-          return done(null, admin, { requires2FA: true });
+          return done(null, admin, { requires2FA: true } as any);
         }
 
         await storage.updateAdmin(admin.id, {
@@ -89,7 +89,7 @@ export async function setupAuth(app: Express) {
 
         return done(null, admin);
       } catch (error) {
-        return done(error);
+        return done(error as Error);
       }
     }),
   );
@@ -97,10 +97,10 @@ export async function setupAuth(app: Express) {
   passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
     try {
-      const admin = await storage.getAdminByUsername(id);
+      const admin = await storage.getAdmin(id);
       done(null, admin);
     } catch (error) {
-      done(error);
+      done(error as Error);
     }
   });
 }
