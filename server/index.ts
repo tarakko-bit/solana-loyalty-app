@@ -6,6 +6,8 @@ import { storage } from "./storage";
 import session from "express-session";
 import passport from "passport";
 import path from "path";
+import connectPgSimple from "connect-pg-simple";
+import { pool } from "./db";
 
 const app = express();
 
@@ -13,21 +15,31 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Configure PostgreSQL session store
+const PostgresStore = connectPgSimple(session);
+const sessionStore = new PostgresStore({
+  pool,
+  createTableIfMissing: true,
+  tableName: 'user_sessions'
+});
+
 // Session setup before routes
 const sessionMiddleware = session({
+  store: sessionStore,
   secret: process.env.SESSION_SECRET || "super-secret-key",
   resave: false,
   saveUninitialized: false,
-  store: storage.sessionStore,
   cookie: {
     secure: process.env.NODE_ENV === "production",
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     sameSite: 'lax',
     httpOnly: true,
     path: '/'
-  }
+  },
+  name: 'solana_loyalty_sid'
 });
 
+app.set('trust proxy', 1);
 app.use(sessionMiddleware);
 app.use(passport.initialize());
 app.use(passport.session());
@@ -75,18 +87,17 @@ app.use((req, res, next) => {
   await initializeAdmins();
   console.log("Admin accounts initialized");
 
-  // Register routes after middleware setup
+  // Register routes first to ensure API endpoints take precedence
   console.log("Registering routes...");
   const server = await registerRoutes(app);
   console.log("Routes registered");
 
-  // Error handling middleware
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  // Error handling middleware for API routes
+  app.use('/api', (err: any, _req: Request, res: Response, _next: NextFunction) => {
+    console.error("API Error:", err);
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
     res.status(status).json({ message });
-    console.error("Server error:", err);
   });
 
   if (process.env.NODE_ENV === 'production') {
