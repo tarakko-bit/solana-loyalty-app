@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import passport from "passport";
-import { loginSchema, users } from "@shared/schema";
+import { loginSchema, users, pointsLedger } from "@shared/schema"; // Added pointsLedger import
 import bcrypt from "bcrypt";
 import { authenticator } from "otplib";
 import { db } from "./db";
@@ -145,6 +145,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching users:", error);
       res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Add user registration endpoint after existing routes
+  app.post("/api/users/register", async (req, res) => {
+    try {
+      const { walletAddress, referredBy } = req.body;
+
+      // Check if user already exists
+      const existing = await db.select()
+        .from(users)
+        .where(eq(users.walletAddress, walletAddress))
+        .limit(1);
+
+      if (existing.length > 0) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+
+      // Generate a unique referral code based on wallet address
+      const referralCode = walletAddress.slice(0, 8).toUpperCase();
+
+      // Create new user
+      const [user] = await db.insert(users)
+        .values({
+          walletAddress,
+          referralCode,
+          referredBy: referredBy || null,
+          createdAt: new Date()
+        })
+        .returning();
+
+      // If this user was referred, add points to referrer
+      if (referredBy) {
+        const referrer = await db.select()
+          .from(users)
+          .where(eq(users.referralCode, referredBy))
+          .limit(1);
+
+        if (referrer.length > 0) {
+          await db.insert(pointsLedger)
+            .values({
+              userId: referrer[0].id,
+              points: "100", // Changed to string to match schema
+              source: 'referral',
+              timestamp: new Date()
+            });
+        }
+      }
+
+      res.status(201).json(user);
+    } catch (error) {
+      console.error("Error registering user:", error);
+      res.status(500).json({ message: "Failed to register user" });
     }
   });
 

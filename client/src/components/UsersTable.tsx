@@ -57,7 +57,7 @@ export function UsersTable() {
                       : "-"}
                   </TableCell>
                   <TableCell>
-                    {formatDistance(new Date(user.createdAt), new Date(), {
+                    {formatDistance(new Date(user.createdAt!), new Date(), {
                       addSuffix: true,
                     })}
                   </TableCell>
