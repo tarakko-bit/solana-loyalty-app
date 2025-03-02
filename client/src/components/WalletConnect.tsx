@@ -73,16 +73,9 @@ export default function WalletConnect() {
     });
   }
 
-  function handlePhantomLink() {
-    // If already in Phantom app, just use the connect button
-    if (isInPhantomApp) {
-      return;
-    }
-
-    // Use direct deep link for mobile
-    const deepLink = `phantom://connect?app=${encodeURIComponent(window.location.origin)}`;
-    window.location.href = deepLink;
-  }
+  // Construct deep links
+  const phantomProtocolUrl = `phantom://browse/${encodeURIComponent(window.location.origin)}`;
+  const phantomWebUrl = `https://phantom.app/ul/browse/${encodeURIComponent(window.location.origin)}`;
 
   return (
     <Card className="w-full max-w-md mx-auto mt-8">
@@ -98,25 +91,30 @@ export default function WalletConnect() {
       </CardHeader>
       <CardContent>
         <div className="flex flex-col items-center gap-4">
-          {isMobile && !isInPhantomApp ? (
-            <Button 
-              className="w-full"
-              onClick={handlePhantomLink}
-            >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Open in Phantom App
-            </Button>
-          ) : (
-            <WalletMultiButton className="phantom-button" />
-          )}
+          <WalletMultiButton className="phantom-button" />
           <p className="text-sm text-muted-foreground text-center">
             {isMobile
-              ? isInPhantomApp 
-                ? "Click 'Connect' to approve"
-                : "Opening Phantom App..."
+              ? "Open in Phantom App to connect"
               : "Click to connect your Phantom wallet"}
           </p>
-
+          {isMobile && (
+            <a 
+              href={phantomProtocolUrl}
+              onClick={(e) => {
+                e.preventDefault();
+                // Try to open the app directly first
+                window.location.href = phantomProtocolUrl;
+                // If app doesn't open within 1 second, redirect to app store/website
+                setTimeout(() => {
+                  window.location.href = phantomWebUrl;
+                }, 1000);
+              }}
+              className="text-sm text-primary hover:underline flex items-center gap-2"
+            >
+              Open in Phantom App
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          )}
           {connected && publicKey && (
             <div className="w-full space-y-4">
               <p className="text-sm text-muted-foreground break-all text-center">
