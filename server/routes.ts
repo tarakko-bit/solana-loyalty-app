@@ -10,6 +10,14 @@ import { authenticator } from "otplib";
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
+  // Add GET /api/admin endpoint to get current admin info
+  app.get("/api/admin", (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.sendStatus(401);
+    }
+    res.json(req.user);
+  });
+
   app.post("/api/login", async (req, res, next) => {
     try {
       const { username, password, totpCode } = loginSchema.parse(req.body);
