@@ -3,19 +3,11 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import passport from "passport";
-import { loginSchema } from "@shared/schema";
+import { loginSchema, users } from "@shared/schema";
 import bcrypt from "bcrypt";
 import { authenticator } from "otplib";
-import {knex} from "./db"; //Import knex instance.  You'll need to create this file and connection.
-import {Knex} from "knex";
-const db: Knex = knex; // Assign the knex instance to db
-
-interface User {
-  walletAddress: string;
-  referredBy?: string;
-  referralCode: string;
-}
-const users = 'users'; //This should be replaced with proper table name if different.
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
@@ -140,21 +132,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       // Check if user already exists
-      const [existingUser] = await db
-        .select()
-        .from(users)
-        .where({walletAddress});
+      const existingUser = await db.select().from(users).where(eq(users.walletAddress, walletAddress)).limit(1);
 
-      if (existingUser) {
+      if (existingUser.length > 0) {
         return res.status(400).json({ message: "User already exists" });
       }
 
       // Create new user with referral
-      await db.insert({
+      await db.insert(users).values({
         walletAddress,
         referredBy,
         referralCode: walletAddress, // Using wallet address as referral code
-      }).into(users);
+      });
 
       res.status(201).json({ message: "Referral stored successfully" });
     } catch (error) {

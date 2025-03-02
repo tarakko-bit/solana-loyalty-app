@@ -1,6 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+import { setupVite, log } from "./vite";
 import { initializeAdmins } from "./init-admins";
 
 const app = express();
@@ -38,11 +38,16 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  console.log("Starting server initialization...");
+
   // Initialize admin accounts
+  console.log("Initializing admin accounts...");
   await initializeAdmins();
   console.log("Admin accounts initialized");
 
+  console.log("Registering routes...");
   const server = await registerRoutes(app);
+  console.log("Routes registered");
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -52,11 +57,9 @@ app.use((req, res, next) => {
     console.error(err);
   });
 
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
+  console.log("Setting up Vite development server...");
+  await setupVite(app, server);
+  console.log("Vite development server configured");
 
   const port = 5000;
   server.listen({
@@ -64,6 +67,6 @@ app.use((req, res, next) => {
     host: "0.0.0.0",
     reusePort: true,
   }, () => {
-    log(`serving on port ${port}`);
+    log(`Server started and listening on port ${port}`);
   });
 })();
