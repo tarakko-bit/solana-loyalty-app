@@ -13,7 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 export default function WalletConnect() {
   const { connected, publicKey, disconnect } = useWallet();
   const { toast } = useToast();
-  const { isMobile, isInPhantomApp } = useIsMobile();
+  const { isMobile, isInPhantomApp, hasPhantomApp } = useIsMobile();
   const [location] = useLocation();
   const referralCode = new URLSearchParams(location).get('ref');
 
@@ -61,27 +61,26 @@ export default function WalletConnect() {
     }
   }
 
+  function handlePhantomConnect() {
+    if (isMobile) {
+      // Direct deep link to Phantom app
+      window.location.href = `phantom://connect?app=${encodeURIComponent(window.location.origin)}`;
+    } else {
+      // For desktop, let the WalletMultiButton handle it
+      document.querySelector('.phantom-button')?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true })
+      );
+    }
+  }
+
   function copyReferralLink() {
     if (!userData?.referralCode) return;
-
     const link = `${window.location.origin}/connect?ref=${userData.referralCode}`;
     navigator.clipboard.writeText(link);
-
     toast({
       title: "Copied!",
       description: "Referral link copied to clipboard",
     });
-  }
-
-  function handlePhantomLink() {
-    // If already in Phantom app, just use the connect button
-    if (isInPhantomApp) {
-      return;
-    }
-
-    // Use direct deep link for mobile
-    const deepLink = `phantom://connect?app=${encodeURIComponent(window.location.origin)}`;
-    window.location.href = deepLink;
   }
 
   return (
@@ -98,23 +97,30 @@ export default function WalletConnect() {
       </CardHeader>
       <CardContent>
         <div className="flex flex-col items-center gap-4">
-          {isMobile && !isInPhantomApp ? (
+          {isMobile ? (
+            // Mobile view
             <Button 
               className="w-full"
-              onClick={handlePhantomLink}
+              onClick={handlePhantomConnect}
             >
               <ExternalLink className="h-4 w-4 mr-2" />
-              Open in Phantom App
+              {isInPhantomApp ? 'Connect Wallet' : 'Open in Phantom App'}
             </Button>
           ) : (
-            <WalletMultiButton className="phantom-button" />
+            // Desktop view - use standard Phantom button
+            <div className="w-full">
+              <WalletMultiButton className="phantom-button w-full" />
+            </div>
           )}
+
           <p className="text-sm text-muted-foreground text-center">
             {isMobile
               ? isInPhantomApp 
-                ? "Click 'Connect' to approve"
-                : "Opening Phantom App..."
-              : "Click to connect your Phantom wallet"}
+                ? "Click to connect your wallet"
+                : hasPhantomApp 
+                  ? "Opening Phantom App..."
+                  : "Install Phantom App to connect"
+              : "Connect using Phantom browser extension"}
           </p>
 
           {connected && publicKey && (
