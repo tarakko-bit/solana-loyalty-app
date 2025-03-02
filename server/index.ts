@@ -15,12 +15,17 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Configure PostgreSQL session store
+// Configure PostgreSQL session store with proper error handling
 const PostgresStore = connectPgSimple(session);
 const sessionStore = new PostgresStore({
   pool,
   createTableIfMissing: true,
-  tableName: 'user_sessions'
+  tableName: 'user_sessions',
+  pruneSessionInterval: 60
+});
+
+sessionStore.on('error', function(error) {
+  console.error('Session store error:', error);
 });
 
 // Session setup before routes
@@ -44,69 +49,81 @@ app.use(sessionMiddleware);
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Logging middleware
+// Debug logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
+  console.log(`\n=== Request Started ===`);
+  console.log(`Path: ${path}`);
+  console.log(`Session ID: ${req.sessionID}`);
+  console.log(`Auth Status: ${req.isAuthenticated()}`);
+  console.log(`User: ${req.user ? JSON.stringify(req.user) : 'Not authenticated'}`);
 
   res.on("finish", () => {
     const duration = Date.now() - start;
+    console.log(`\n=== Request Completed ===`);
     console.log(`${req.method} ${path} ${res.statusCode} ${duration}ms [Session: ${req.sessionID}]`);
+    console.log(`========================\n`);
   });
 
   next();
 });
 
 (async () => {
-  console.log("Starting server initialization...");
+  try {
+    console.log("Starting server initialization...");
 
-  // Initialize admin accounts
-  console.log("Initializing admin accounts...");
-  await initializeAdmins();
-  console.log("Admin accounts initialized");
+    // Initialize admin accounts
+    console.log("Initializing admin accounts...");
+    await initializeAdmins();
+    console.log("Admin accounts initialized");
 
-  // Register routes first to ensure API endpoints take precedence
-  console.log("Registering routes...");
-  const server = await registerRoutes(app);
-  console.log("Routes registered");
+    // Register routes first to ensure API endpoints take precedence
+    console.log("Registering routes...");
+    const server = await registerRoutes(app);
+    console.log("Routes registered");
 
-  // Error handling middleware for API routes
-  app.use('/api', (err: any, _req: Request, res: Response, _next: NextFunction) => {
-    console.error("API Error:", err);
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
-  });
-
-  if (process.env.NODE_ENV === 'production') {
-    // Serve static files from the correct dist path
-    const distPath = path.join(process.cwd(), 'dist', 'public');
-    console.log('Serving static files from:', distPath);
-    app.use(express.static(distPath));
-
-    // Handle client-side routing - this must come after API routes
-    app.get('*', (_req, res) => {
-      const indexPath = path.join(distPath, 'index.html');
-      console.log('Serving index.html from:', indexPath);
-      if (!require('fs').existsSync(indexPath)) {
-        console.error('index.html not found at:', indexPath);
-        return res.status(404).send('index.html not found');
-      }
-      res.sendFile(indexPath);
+    // Error handling middleware for API routes
+    app.use('/api', (err: any, _req: Request, res: Response, _next: NextFunction) => {
+      console.error("API Error:", err);
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      res.status(status).json({ message });
     });
-  } else {
-    console.log("Setting up Vite development server...");
-    await setupVite(app, server);
-    console.log("Vite development server configured");
-  }
 
-  // Use Replit's port or fallback to 5000
-  const port = process.env.PORT || 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`Server started and listening on port ${port}`);
-  });
+    if (process.env.NODE_ENV === 'production') {
+      // Serve static files from the correct dist path
+      const distPath = path.join(process.cwd(), 'dist', 'public');
+      console.log('Serving static files from:', distPath);
+      app.use(express.static(distPath));
+
+      // Handle client-side routing for all non-API routes
+      app.get('*', (_req, res) => {
+        const indexPath = path.join(distPath, 'index.html');
+        console.log('Serving index.html from:', indexPath);
+        if (!require('fs').existsSync(indexPath)) {
+          console.error('index.html not found at:', indexPath);
+          return res.status(404).send('index.html not found');
+        }
+        res.sendFile(indexPath);
+      });
+    } else {
+      console.log("Setting up Vite development server...");
+      await setupVite(app, server);
+      console.log("Vite development server configured");
+    }
+
+    // Use Replit's port or fallback to 5000
+    const port = process.env.PORT || 5000;
+    server.listen({
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    }, () => {
+      log(`Server started and listening on port ${port}`);
+    });
+  } catch (error) {
+    console.error("Server initialization error:", error);
+    process.exit(1);
+  }
 })();
