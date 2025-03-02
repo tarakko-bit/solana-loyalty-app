@@ -133,31 +133,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ secret });
   });
 
-  // Store referral relationship
-  app.post("/api/store-referral", async (req, res) => {
-    const { walletAddress, referredBy } = req.body;
+  // Get all users
+  app.get("/api/users", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.sendStatus(401);
+    }
 
     try {
-      // Check if user already exists
-      const existingUser = await db.select().from(users).where(eq(users.walletAddress, walletAddress)).limit(1);
-
-      if (existingUser.length > 0) {
-        return res.status(400).json({ message: "User already exists" });
-      }
-
-      // Create new user with referral
-      await db.insert(users).values({
-        walletAddress,
-        referredBy,
-        referralCode: walletAddress, // Using wallet address as referral code
-      });
-
-      res.status(201).json({ message: "Referral stored successfully" });
+      const users = await db.select().from(users).orderBy(users.createdAt);
+      res.json(users);
     } catch (error) {
-      console.error("Error storing referral:", error);
-      res.status(500).json({ message: "Failed to store referral" });
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
     }
   });
+
 
   const httpServer = createServer(app);
   return httpServer;

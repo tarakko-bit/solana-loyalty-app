@@ -5,6 +5,7 @@ import { LogOut, UserCog, Shield, Wallet } from "lucide-react";
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { BulkSolanaTransfer } from "@/components/BulkSolanaTransfer";
+import { UsersTable } from "@/components/UsersTable";
 
 export default function AdminDashboard() {
   const { admin, logoutMutation, setup2FAMutation } = useAuth();
@@ -82,6 +83,11 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           )}
+        </div>
+
+        {/* Users Section */}
+        <div className="mt-8">
+          <UsersTable />
         </div>
 
         {/* Bulk Transfer Section */}
