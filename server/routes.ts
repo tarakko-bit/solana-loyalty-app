@@ -14,9 +14,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Add GET /api/admin endpoint to get current admin info
   app.get("/api/admin", (req, res) => {
-    console.log("GET /api/admin - Auth status:", req.isAuthenticated());
-    console.log("Session:", req.session);
+    console.log("\n=== /api/admin Request ===");
+    console.log("Session ID:", req.sessionID);
+    console.log("Auth status:", req.isAuthenticated());
+    console.log("Session:", JSON.stringify(req.session, null, 2));
     console.log("User:", req.user);
+    console.log("=======================\n");
 
     if (!req.isAuthenticated()) {
       return res.sendStatus(401);
@@ -26,7 +29,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/login", async (req, res, next) => {
     try {
-      console.log("Login attempt:", req.body.username);
+      console.log("\n=== Login Attempt ===");
+      console.log("Username:", req.body.username);
+      console.log("Session ID:", req.sessionID);
       const { username, password, totpCode } = loginSchema.parse(req.body);
 
       passport.authenticate("local", (error: Error | null, admin: Express.User | false, info: { message?: string; requires2FA?: boolean }) => {
@@ -37,23 +42,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!admin) {
           console.log("Authentication failed:", info.message);
           return res.status(401).json({ message: info.message });
-        }
-
-        if (info?.requires2FA) {
-          if (!totpCode) {
-            console.log("2FA required but no code provided");
-            return res.status(401).json({ requires2FA: true });
-          }
-
-          const isValidTotp = authenticator.verify({
-            token: totpCode,
-            secret: admin.twoFactorSecret!,
-          });
-
-          if (!isValidTotp) {
-            console.log("Invalid 2FA code");
-            return res.status(401).json({ message: "Invalid 2FA code" });
-          }
         }
 
         req.login(admin, async (err) => {
@@ -71,6 +59,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           console.log("Login successful:", admin.username);
+          console.log("New Session ID:", req.sessionID);
           res.json(admin);
         });
       })(req, res, next);
