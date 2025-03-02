@@ -88,11 +88,16 @@ app.use((req, res, next) => {
     console.error("Server error:", err);
   });
 
-  console.log("Setting up Vite development server...");
-  await setupVite(app, server);
-  console.log("Vite development server configured");
+  if (process.env.NODE_ENV === 'production') {
+    app.use(express.static('dist'));
+  } else {
+    console.log("Setting up Vite development server...");
+    await setupVite(app, server);
+    console.log("Vite development server configured");
+  }
 
-  const port = 5000;
+  // Use Replit's port or fallback to 5000
+  const port = process.env.PORT || 5000;
   server.listen({
     port,
     host: "0.0.0.0",

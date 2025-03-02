@@ -73,7 +73,7 @@ export default function WalletConnect() {
     });
   }
 
-  // Construct deep links
+  // Construct deep links for Phantom app
   const phantomProtocolUrl = `phantom://browse/${encodeURIComponent(window.location.origin)}`;
   const phantomWebUrl = `https://phantom.app/ul/browse/${encodeURIComponent(window.location.origin)}`;
 
@@ -97,16 +97,16 @@ export default function WalletConnect() {
               ? "Open in Phantom App to connect"
               : "Click to connect your Phantom wallet"}
           </p>
-          {isMobile && (
+          {isMobile && !isInPhantomApp && (
             <a 
               href={phantomProtocolUrl}
               onClick={(e) => {
                 e.preventDefault();
-                // Try to open the app directly first
                 window.location.href = phantomProtocolUrl;
-                // If app doesn't open within 1 second, redirect to app store/website
                 setTimeout(() => {
-                  window.location.href = phantomWebUrl;
+                  if (!isInPhantomApp) {
+                    window.location.href = phantomWebUrl;
+                  }
                 }, 1000);
               }}
               className="text-sm text-primary hover:underline flex items-center gap-2"
