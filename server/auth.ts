@@ -39,21 +39,21 @@ export async function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username: string, password: string, done) => {
       try {
-        console.log(`Attempting login for username: ${username}`);
+        console.log(`Login attempt for username: ${username}`);
         const admin = await storage.getAdminByUsername(username);
 
         if (!admin) {
-          console.log("Admin not found");
+          console.log(`Admin not found: ${username}`);
           return done(null, false, { message: "Invalid credentials" });
         }
 
         if (admin.lockedUntil && admin.lockedUntil > new Date()) {
-          console.log("Account is locked");
+          console.log(`Account locked: ${username}`);
           return done(null, false, { message: "Account is locked" });
         }
 
         const isValid = await bcrypt.compare(password, admin.password);
-        console.log(`Password validation result: ${isValid}`);
+        console.log(`Password validation for ${username}: ${isValid}`);
 
         if (!isValid) {
           const failedAttempts = (admin.failedAttempts || 0) + 1;
@@ -64,20 +64,22 @@ export async function setupAuth(app: Express) {
           }
 
           await storage.updateAdmin(admin.id, updates);
+          console.log(`Failed login attempt for ${username}. Attempts: ${failedAttempts}`);
           return done(null, false, { message: "Invalid credentials" });
         }
 
-        if (admin.twoFactorEnabled) {
-          console.log("2FA is enabled, requiring additional verification");
-          return done(null, admin, { requires2FA: true } as any);
-        }
-
+        // Reset failed attempts on successful login
         await storage.updateAdmin(admin.id, {
           failedAttempts: 0,
           lastLogin: new Date(),
         });
 
-        console.log("Login successful");
+        if (admin.twoFactorEnabled) {
+          console.log(`2FA required for ${username}`);
+          return done(null, admin, { requires2FA: true } as any);
+        }
+
+        console.log(`Login successful for ${username}`);
         return done(null, admin);
       } catch (error) {
         console.error("Login error:", error);
@@ -87,15 +89,19 @@ export async function setupAuth(app: Express) {
   );
 
   passport.serializeUser((user, done) => {
-    console.log("Serializing user:", user.id);
+    console.log(`Serializing user ID: ${user.id}`);
     done(null, user.id);
   });
 
   passport.deserializeUser(async (id: number, done) => {
     try {
-      console.log("Deserializing user:", id);
+      console.log(`Deserializing user ID: ${id}`);
       const admin = await storage.getAdmin(id);
-      console.log("Deserialized admin:", admin ? "found" : "not found");
+      if (admin) {
+        console.log(`Deserialized admin: ${admin.username}`);
+      } else {
+        console.log(`Failed to deserialize user ID: ${id}`);
+      }
       done(null, admin);
     } catch (error) {
       console.error("Deserialize error:", error);
@@ -104,17 +110,4 @@ export async function setupAuth(app: Express) {
   });
 
   console.log("Authentication setup completed");
-}
-
-const PREDEFINED_ADMINS = {
-  nginx: "#Nx2025@Admin$",
-  asmaa: "@As2025#Secure!",
-  tarak: "$Tr2025@Panel#",
-  hamza: "#Hz2025$Admin@",
-  dokho: "@Dk2025#Panel$",
-};
-
-async function hashPassword(password: string) {
-  const salt = await bcrypt.genSalt(12);
-  return bcrypt.hash(password, salt);
 }

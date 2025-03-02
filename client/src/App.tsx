@@ -24,6 +24,13 @@ const wallets = [
       name: "Solana Loyalty App",
       icon: "https://phantom.app/favicon.ico", // Using Phantom's icon as a fallback
       url: window.location.origin // This helps with deep linking
+    },
+    deepLinkingOptions: {
+      mobile: {
+        nativeRedirect: true,
+        handleRedirectUrl: true,
+        universalLink: window.location.origin
+      }
     }
   })
 ];
@@ -32,11 +39,23 @@ function Router() {
   return (
     <Switch>
       <Route path="/">
-        <Redirect to="/connect" />
+        {/* Keep /connect as default but add admin link */}
+        <div className="min-h-screen bg-gray-50 p-4">
+          <div className="max-w-7xl mx-auto">
+            <nav className="mb-8 flex justify-end">
+              <a href="/admin/login" className="text-sm text-primary hover:underline">
+                Admin Login →
+              </a>
+            </nav>
+            <WalletConnect />
+          </div>
+        </div>
+      </Route>
+      <Route path="/admin">
+        <Redirect to="/admin/login" />
       </Route>
       <Route path="/admin/login" component={AuthPage} />
       <ProtectedRoute path="/admin/dashboard" component={AdminDashboard} />
-      <Route path="/connect" component={WalletConnect} />
       <Route component={NotFound} />
     </Switch>
   );
