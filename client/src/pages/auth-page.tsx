@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Lock } from "lucide-react";
+import { Loader2, Shield } from "lucide-react";
 import { useLocation } from "wouter";
 
 export default function AuthPage() {
@@ -25,7 +25,7 @@ export default function AuthPage() {
   async function onSubmit(data: any) {
     try {
       await loginMutation.mutateAsync(data);
-      setLocation("/admin");
+      setLocation("/admin/dashboard");
     } catch (error) {
       // Error handling is done in the mutation
     }
@@ -91,7 +91,7 @@ export default function AuthPage() {
                 {loginMutation.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Lock className="h-4 w-4 mr-2" />
+                  <Shield className="h-4 w-4 mr-2" />
                 )}
                 Login
               </Button>

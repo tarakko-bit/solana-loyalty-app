@@ -12,10 +12,10 @@ function Router() {
   return (
     <Switch>
       <Route path="/">
-        <Redirect to="/auth" />
+        <Redirect to="/admin/login" />
       </Route>
-      <ProtectedRoute path="/admin" component={AdminDashboard} />
-      <Route path="/auth" component={AuthPage} />
+      <Route path="/admin/login" component={AuthPage} />
+      <ProtectedRoute path="/admin/dashboard" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>
   );
