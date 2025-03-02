@@ -16,21 +16,18 @@ import { clusterApiUrl } from '@solana/web3.js';
 // Import Solana wallet adapter styles
 import '@solana/wallet-adapter-react-ui/styles.css';
 
+// Define network endpoint
 const endpoint = clusterApiUrl('devnet');
+
+// Configure wallet
 const wallets = [
   new PhantomWalletAdapter({ 
     network: 'devnet',
     appIdentity: {
       name: "Solana Loyalty App",
-      icon: "https://phantom.app/favicon.ico", // Using Phantom's icon as a fallback
-      url: window.location.origin // This helps with deep linking
-    },
-    deepLinkingOptions: {
-      mobile: {
-        nativeRedirect: true,
-        handleRedirectUrl: true,
-        universalLink: window.location.origin
-      }
+      // Use a more reliable icon URL
+      icon: "https://raw.githubusercontent.com/solana-labs/wallet-adapter/master/packages/wallets/icons/phantom.svg",
+      url: typeof window !== 'undefined' ? window.location.origin : '' // Handle SSR
     }
   })
 ];
@@ -87,7 +84,7 @@ function Router() {
 function App() {
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect={false}>
+      <WalletProvider wallets={wallets} autoConnect={true}>
         <WalletModalProvider>
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
