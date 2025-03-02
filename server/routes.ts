@@ -6,6 +6,16 @@ import passport from "passport";
 import { loginSchema } from "@shared/schema";
 import bcrypt from "bcrypt";
 import { authenticator } from "otplib";
+import {knex} from "./db"; //Import knex instance.  You'll need to create this file and connection.
+import {Knex} from "knex";
+const db: Knex = knex; // Assign the knex instance to db
+
+interface User {
+  walletAddress: string;
+  referredBy?: string;
+  referralCode: string;
+}
+const users = 'users'; //This should be replaced with proper table name if different.
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
@@ -122,6 +132,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     res.json({ secret });
+  });
+
+  // Store referral relationship
+  app.post("/api/store-referral", async (req, res) => {
+    const { walletAddress, referredBy } = req.body;
+
+    try {
+      // Check if user already exists
+      const [existingUser] = await db
+        .select()
+        .from(users)
+        .where({walletAddress});
+
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+
+      // Create new user with referral
+      await db.insert({
+        walletAddress,
+        referredBy,
+        referralCode: walletAddress, // Using wallet address as referral code
+      }).into(users);
+
+      res.status(201).json({ message: "Referral stored successfully" });
+    } catch (error) {
+      console.error("Error storing referral:", error);
+      res.status(500).json({ message: "Failed to store referral" });
+    }
   });
 
   const httpServer = createServer(app);
