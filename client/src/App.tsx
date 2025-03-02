@@ -22,7 +22,8 @@ const wallets = [
     network: 'devnet',
     appIdentity: {
       name: "Solana Loyalty App",
-      icon: "https://phantom.app/favicon.ico" // Using Phantom's icon as a fallback
+      icon: "https://phantom.app/favicon.ico", // Using Phantom's icon as a fallback
+      url: window.location.origin // This helps with deep linking
     }
   })
 ];
@@ -44,7 +45,7 @@ function Router() {
 function App() {
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets}>
+      <WalletProvider wallets={wallets} autoConnect={false}>
         <WalletModalProvider>
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
