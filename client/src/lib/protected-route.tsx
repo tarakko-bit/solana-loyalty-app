@@ -29,13 +29,5 @@ export function ProtectedRoute({
     );
   }
 
-  if (admin.isFirstLogin && path !== "/change-password") {
-    return (
-      <Route path={path}>
-        <Redirect to="/change-password" />
-      </Route>
-    );
-  }
-
   return <Route path={path} component={Component} />;
 }
