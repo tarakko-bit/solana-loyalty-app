@@ -17,6 +17,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 // Import Solana wallet adapter styles
 import '@solana/wallet-adapter-react-ui/styles.css';
 
+// Configure Solana
 const endpoint = clusterApiUrl('devnet');
 const wallets = [new PhantomWalletAdapter()];
 
@@ -71,7 +72,7 @@ function Router() {
 export default function App() {
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets}>
+      <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
           <QueryClientProvider client={queryClient}>
             <AuthProvider>

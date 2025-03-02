@@ -3,11 +3,12 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import passport from "passport";
-import { loginSchema, users, pointsLedger } from "@shared/schema"; // Added pointsLedger import
+import { loginSchema, users, pointsLedger } from "@shared/schema";
 import bcrypt from "bcrypt";
 import { authenticator } from "otplib";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
+import type { Request, Response, NextFunction } from 'express';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
@@ -30,11 +31,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/login", async (req, res, next) => {
     try {
       console.log("\n=== Login Attempt ===");
-      console.log("Username:", req.body.username);
+      console.log("Request body:", req.body);
       console.log("Session ID:", req.sessionID);
-      const { username, password, totpCode } = loginSchema.parse(req.body);
+      console.log("Headers:", req.headers);
 
-      passport.authenticate("local", (error: Error | null, admin: Express.User | false, info: { message?: string; requires2FA?: boolean }) => {
+      const { username, password } = loginSchema.parse(req.body);
+
+      passport.authenticate("local", (error: Error | null, admin: Express.User | false, info: { message?: string }) => {
         if (error) {
           console.error("Authentication error:", error);
           return next(error);
@@ -133,6 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ secret });
   });
 
+
   // Get all users
   app.get("/api/users", async (req, res) => {
     if (!req.isAuthenticated()) {
@@ -140,15 +144,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const users = await db.select().from(users).orderBy(users.createdAt);
-      res.json(users);
+      const allUsers = await db.select().from(users);
+      res.json(allUsers);
     } catch (error) {
       console.error("Error fetching users:", error);
       res.status(500).json({ message: "Failed to fetch users" });
     }
   });
 
-  // Add user registration endpoint after existing routes
+  // Add user registration endpoint
   app.post("/api/users/register", async (req, res) => {
     try {
       const { walletAddress, referredBy } = req.body;
@@ -187,7 +191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.insert(pointsLedger)
             .values({
               userId: referrer[0].id,
-              points: "100", // Changed to string to match schema
+              points: "100",
               source: 'referral',
               timestamp: new Date()
             });
@@ -201,7 +205,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Add this endpoint after the existing /api/users/register endpoint
   app.get("/api/users/me", async (req, res) => {
     try {
       const walletAddress = req.query.wallet as string;
@@ -225,6 +228,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Add error handling middleware for API routes
+  app.use('/api', (err: Error, req: Request, res: Response, next: NextFunction) => {
+    console.error('API Error:', {
+      error: err,
+      stack: err.stack,
+      path: req.path,
+      method: req.method,
+      sessionId: req.sessionID,
+      headers: req.headers,
+      body: req.body
+    });
+
+    const message = err.message || 'Internal Server Error';
+    const status = err instanceof Error ? 500 : (err as any).status || 500;
+
+    res.status(status).json({ message });
+  });
 
   const httpServer = createServer(app);
   return httpServer;
