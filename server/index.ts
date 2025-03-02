@@ -21,7 +21,9 @@ const sessionMiddleware = session({
   cookie: {
     secure: process.env.NODE_ENV === "production",
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'lax'
+    sameSite: 'lax',
+    httpOnly: true,
+    path: '/'
   }
 });
 
@@ -51,6 +53,7 @@ app.use((req, res, next) => {
       if (req.user) {
         logLine += ` [User: ${(req.user as any).username}]`;
       }
+      logLine += ` [Session ID: ${req.sessionID}]`;
 
       if (logLine.length > 120) {
         logLine = logLine.slice(0, 119) + "…";

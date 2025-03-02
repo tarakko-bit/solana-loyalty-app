@@ -1,4 +1,4 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
@@ -38,8 +38,12 @@ const wallets = [
 function Router() {
   return (
     <Switch>
-      <Route path="/">
-        {/* Keep /connect as default but add admin link */}
+      {/* Direct admin routes */}
+      <Route path="/admin/login" component={AuthPage} />
+      <ProtectedRoute path="/admin/dashboard" component={AdminDashboard} />
+
+      {/* Wallet routes */}
+      <Route path="/connect">
         <div className="min-h-screen bg-gray-50 p-4">
           <div className="max-w-7xl mx-auto">
             <nav className="mb-8 flex justify-end">
@@ -51,11 +55,30 @@ function Router() {
           </div>
         </div>
       </Route>
-      <Route path="/admin">
-        <Redirect to="/admin/login" />
+
+      {/* Default route */}
+      <Route path="/">
+        <div className="min-h-screen bg-gray-50 p-4">
+          <div className="max-w-7xl mx-auto text-center">
+            <h1 className="text-4xl font-bold mb-8">Welcome to Solana Loyalty App</h1>
+            <div className="flex justify-center gap-4">
+              <a 
+                href="/admin/login" 
+                className="inline-flex items-center px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                Admin Login
+              </a>
+              <a 
+                href="/connect" 
+                className="inline-flex items-center px-4 py-2 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/90"
+              >
+                Connect Wallet
+              </a>
+            </div>
+          </div>
+        </div>
       </Route>
-      <Route path="/admin/login" component={AuthPage} />
-      <ProtectedRoute path="/admin/dashboard" component={AdminDashboard} />
+
       <Route component={NotFound} />
     </Switch>
   );

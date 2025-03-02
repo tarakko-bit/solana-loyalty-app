@@ -25,7 +25,9 @@ export async function setupAuth(app: Express) {
     cookie: {
       secure: process.env.NODE_ENV === "production",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: 'lax'
+      sameSite: 'lax',
+      httpOnly: true,
+      path: '/'
     },
   };
 
@@ -73,11 +75,6 @@ export async function setupAuth(app: Express) {
           failedAttempts: 0,
           lastLogin: new Date(),
         });
-
-        if (admin.twoFactorEnabled) {
-          console.log(`2FA required for ${username}`);
-          return done(null, admin, { requires2FA: true } as any);
-        }
 
         console.log(`Login successful for ${username}`);
         return done(null, admin);
