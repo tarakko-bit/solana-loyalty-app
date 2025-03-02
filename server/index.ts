@@ -128,7 +128,7 @@ app.use((req, res, next) => {
       console.log('Production mode: Serving static files from:', distPath);
 
       // Check if the dist directory exists
-      if (!require('fs').existsSync(distPath)) {
+      if (!fs.existsSync(distPath)) {
         console.error('Error: Production build directory not found:', distPath);
         console.error('Please ensure you have run `npm run build` before starting the server in production mode');
         process.exit(1);
