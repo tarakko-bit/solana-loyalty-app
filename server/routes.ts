@@ -14,6 +14,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Add GET /api/admin endpoint to get current admin info
   app.get("/api/admin", (req, res) => {
+    console.log("GET /api/admin - Auth status:", req.isAuthenticated());
+    console.log("Session:", req.session);
+    console.log("User:", req.user);
+
     if (!req.isAuthenticated()) {
       return res.sendStatus(401);
     }
@@ -22,14 +26,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/login", async (req, res, next) => {
     try {
+      console.log("Login attempt:", req.body.username);
       const { username, password, totpCode } = loginSchema.parse(req.body);
 
       passport.authenticate("local", (error: Error | null, admin: Express.User | false, info: { message?: string; requires2FA?: boolean }) => {
-        if (error) return next(error);
-        if (!admin) return res.status(401).json({ message: info.message });
+        if (error) {
+          console.error("Authentication error:", error);
+          return next(error);
+        }
+        if (!admin) {
+          console.log("Authentication failed:", info.message);
+          return res.status(401).json({ message: info.message });
+        }
 
         if (info?.requires2FA) {
           if (!totpCode) {
+            console.log("2FA required but no code provided");
             return res.status(401).json({ requires2FA: true });
           }
 
@@ -39,12 +51,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           if (!isValidTotp) {
+            console.log("Invalid 2FA code");
             return res.status(401).json({ message: "Invalid 2FA code" });
           }
         }
 
         req.login(admin, async (err) => {
-          if (err) return next(err);
+          if (err) {
+            console.error("Login error:", err);
+            return next(err);
+          }
 
           await storage.logActivity({
             adminId: admin.id,
@@ -54,10 +70,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             details: `Admin ${admin.username} logged in`
           });
 
+          console.log("Login successful:", admin.username);
           res.json(admin);
         });
       })(req, res, next);
     } catch (error) {
+      console.error("Login route error:", error);
       next(error);
     }
   });

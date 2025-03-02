@@ -13,17 +13,25 @@ import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { clusterApiUrl } from '@solana/web3.js';
 
-// Import wallet adapter CSS
+// Import Solana wallet adapter styles
 import '@solana/wallet-adapter-react-ui/styles.css';
 
 const endpoint = clusterApiUrl('devnet');
-const wallets = [new PhantomWalletAdapter()];
+const wallets = [
+  new PhantomWalletAdapter({ 
+    network: 'devnet',
+    appIdentity: {
+      name: "Solana Loyalty App",
+      icon: "https://phantom.app/favicon.ico" // Using Phantom's icon as a fallback
+    }
+  })
+];
 
 function Router() {
   return (
     <Switch>
       <Route path="/">
-        <Redirect to="/admin/login" />
+        <Redirect to="/connect" />
       </Route>
       <Route path="/admin/login" component={AuthPage} />
       <ProtectedRoute path="/admin/dashboard" component={AdminDashboard} />
@@ -36,7 +44,7 @@ function Router() {
 function App() {
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect>
+      <WalletProvider wallets={wallets}>
         <WalletModalProvider>
           <QueryClientProvider client={queryClient}>
             <AuthProvider>

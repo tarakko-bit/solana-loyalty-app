@@ -13,31 +13,10 @@ declare global {
   }
 }
 
-const PREDEFINED_ADMINS = {
-  nginx: "#Nx2025@Admin$",
-  asmaa: "@As2025#Secure!",
-  tarak: "$Tr2025@Panel#",
-  hamza: "#Hz2025$Admin@",
-  dokho: "@Dk2025#Panel$",
-};
-
-async function hashPassword(password: string) {
-  const salt = await bcrypt.genSalt(12);
-  return bcrypt.hash(password, salt);
-}
-
 export async function setupAuth(app: Express) {
-  // Initialize predefined admins if they don't exist
-  for (const [username, password] of Object.entries(PREDEFINED_ADMINS)) {
-    const existingAdmin = await storage.getAdminByUsername(username);
-    if (!existingAdmin) {
-      await storage.createAdmin({
-        username,
-        password: await hashPassword(password),
-      });
-    }
-  }
+  console.log("Setting up authentication...");
 
+  // Initialize session configuration
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "super-secret-key",
     resave: false,
@@ -46,25 +25,36 @@ export async function setupAuth(app: Express) {
     cookie: {
       secure: process.env.NODE_ENV === "production",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: 'lax'
     },
   };
 
+  console.log("Configuring session middleware...");
   app.set("trust proxy", 1);
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
+  console.log("Session middleware configured");
 
   passport.use(
     new LocalStrategy(async (username: string, password: string, done) => {
       try {
+        console.log(`Attempting login for username: ${username}`);
         const admin = await storage.getAdminByUsername(username);
-        if (!admin) return done(null, false, { message: "Invalid credentials" });
+
+        if (!admin) {
+          console.log("Admin not found");
+          return done(null, false, { message: "Invalid credentials" });
+        }
 
         if (admin.lockedUntil && admin.lockedUntil > new Date()) {
+          console.log("Account is locked");
           return done(null, false, { message: "Account is locked" });
         }
 
         const isValid = await bcrypt.compare(password, admin.password);
+        console.log(`Password validation result: ${isValid}`);
+
         if (!isValid) {
           const failedAttempts = (admin.failedAttempts || 0) + 1;
           const updates: Partial<Admin> = { failedAttempts };
@@ -78,7 +68,7 @@ export async function setupAuth(app: Express) {
         }
 
         if (admin.twoFactorEnabled) {
-          // Handle 2FA verification in a separate step
+          console.log("2FA is enabled, requiring additional verification");
           return done(null, admin, { requires2FA: true } as any);
         }
 
@@ -87,20 +77,44 @@ export async function setupAuth(app: Express) {
           lastLogin: new Date(),
         });
 
+        console.log("Login successful");
         return done(null, admin);
       } catch (error) {
+        console.error("Login error:", error);
         return done(error as Error);
       }
     }),
   );
 
-  passport.serializeUser((user, done) => done(null, user.id));
+  passport.serializeUser((user, done) => {
+    console.log("Serializing user:", user.id);
+    done(null, user.id);
+  });
+
   passport.deserializeUser(async (id: number, done) => {
     try {
+      console.log("Deserializing user:", id);
       const admin = await storage.getAdmin(id);
+      console.log("Deserialized admin:", admin ? "found" : "not found");
       done(null, admin);
     } catch (error) {
+      console.error("Deserialize error:", error);
       done(error as Error);
     }
   });
+
+  console.log("Authentication setup completed");
+}
+
+const PREDEFINED_ADMINS = {
+  nginx: "#Nx2025@Admin$",
+  asmaa: "@As2025#Secure!",
+  tarak: "$Tr2025@Panel#",
+  hamza: "#Hz2025$Admin@",
+  dokho: "@Dk2025#Panel$",
+};
+
+async function hashPassword(password: string) {
+  const salt = await bcrypt.genSalt(12);
+  return bcrypt.hash(password, salt);
 }
