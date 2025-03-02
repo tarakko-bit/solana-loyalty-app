@@ -73,6 +73,8 @@ export default function WalletConnect() {
     });
   }
 
+  const phantomDeepLink = `https://phantom.app/ul/browse/${encodeURIComponent(window.location.origin)}`;
+
   return (
     <Card className="w-full max-w-md mx-auto mt-8">
       <CardHeader>
@@ -95,7 +97,7 @@ export default function WalletConnect() {
           </p>
           {isMobile && (
             <a 
-              href={`https://phantom.app/ul/browse/${encodeURIComponent(window.location.origin)}`}
+              href={phantomDeepLink}
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-primary hover:underline flex items-center gap-2"

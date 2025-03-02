@@ -7,6 +7,7 @@ export function useIsMobile() {
   const [isInPhantomApp, setIsInPhantomApp] = React.useState(false)
 
   React.useEffect(() => {
+    // Handle mobile detection
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
     const onChange = () => {
       setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
@@ -18,6 +19,7 @@ export function useIsMobile() {
     const isPhantom = /Phantom/.test(navigator.userAgent)
     setIsInPhantomApp(isPhantom)
 
+    // Cleanup
     return () => mql.removeEventListener("change", onChange)
   }, [])
 
