@@ -16,6 +16,8 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+app.set('trust proxy', 1);
+
 // Configure PostgreSQL session store with proper error handling
 const PostgresStore = connectPgSimple(session);
 const sessionStore = new PostgresStore({
@@ -45,7 +47,6 @@ const sessionMiddleware = session({
   name: 'solana_loyalty_sid'
 });
 
-app.set('trust proxy', 1);
 app.use(sessionMiddleware);
 app.use(passport.initialize());
 app.use(passport.session());
@@ -154,7 +155,7 @@ app.use((req, res, next) => {
         console.log('From path:', indexPath);
 
         // Verify index.html exists
-        if (!require('fs').existsSync(indexPath)) {
+        if (!fs.existsSync(indexPath)) {
           console.error('Critical Error: index.html not found at:', indexPath);
           return res.status(500).send('Server configuration error: index.html not found');
         }
