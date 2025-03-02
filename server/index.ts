@@ -5,6 +5,7 @@ import { initializeAdmins } from "./init-admins";
 import { storage } from "./storage";
 import session from "express-session";
 import passport from "passport";
+import path from "path";
 
 const app = express();
 
@@ -89,7 +90,13 @@ app.use((req, res, next) => {
   });
 
   if (process.env.NODE_ENV === 'production') {
+    // Serve static files
     app.use(express.static('dist'));
+
+    // Handle client-side routing
+    app.get('*', (_req, res) => {
+      res.sendFile(path.resolve('dist', 'index.html'));
+    });
   } else {
     console.log("Setting up Vite development server...");
     await setupVite(app, server);
