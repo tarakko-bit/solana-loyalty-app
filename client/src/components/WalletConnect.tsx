@@ -20,7 +20,15 @@ export default function WalletConnect() {
 
   // Fetch user data if wallet is connected
   const { data: userData } = useQuery({
-    queryKey: ['/api/users/me'],
+    queryKey: ['/api/users/me', publicKey?.toString()],
+    queryFn: async () => {
+      if (!publicKey) return null;
+      const res = await fetch(`/api/users/me?wallet=${publicKey.toString()}`);
+      if (!res.ok) {
+        throw new Error('Failed to fetch user data');
+      }
+      return res.json();
+    },
     enabled: connected && !!publicKey,
   });
 
