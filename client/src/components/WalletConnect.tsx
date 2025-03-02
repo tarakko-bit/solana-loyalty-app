@@ -3,11 +3,12 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState, useEffect } from 'react';
-import { Loader2, ExternalLink } from 'lucide-react';
+import { Loader2, ExternalLink, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLocation } from 'wouter';
 import { apiRequest } from '@/lib/queryClient';
+import { useQuery } from '@tanstack/react-query';
 
 export default function WalletConnect() {
   const { connected, publicKey, disconnect, wallet } = useWallet();
@@ -17,6 +18,12 @@ export default function WalletConnect() {
   const [location] = useLocation();
   const referralCode = new URLSearchParams(location).get('ref');
 
+  // Fetch user data if wallet is connected
+  const { data: userData } = useQuery({
+    queryKey: ['/api/users/me'],
+    enabled: connected && !!publicKey,
+  });
+
   useEffect(() => {
     if (wallet?.adapter.connected && publicKey) {
       handleNewConnection(publicKey.toString());
@@ -25,7 +32,6 @@ export default function WalletConnect() {
 
   async function handleNewConnection(walletAddress: string) {
     try {
-      // Try to register the user with their wallet address and referral code
       await apiRequest('POST', '/api/users/register', {
         walletAddress,
         referredBy: referralCode
@@ -38,7 +44,6 @@ export default function WalletConnect() {
           : "Successfully connected",
       });
     } catch (error: any) {
-      // If user already exists, that's fine
       if (!error.message.includes('already exists')) {
         toast({
           title: "Connection Error",
@@ -47,6 +52,18 @@ export default function WalletConnect() {
         });
       }
     }
+  }
+
+  function copyReferralLink() {
+    if (!userData?.referralCode) return;
+
+    const link = `${window.location.origin}/connect?ref=${userData.referralCode}`;
+    navigator.clipboard.writeText(link);
+
+    toast({
+      title: "Copied!",
+      description: "Referral link copied to clipboard",
+    });
   }
 
   return (
@@ -92,6 +109,24 @@ export default function WalletConnect() {
               <p className="text-sm text-muted-foreground break-all text-center">
                 Connected: {publicKey.toString()}
               </p>
+              {userData?.referralCode && (
+                <div className="p-4 border rounded-lg bg-muted/50">
+                  <p className="text-sm font-medium mb-2">Your Referral Link:</p>
+                  <div className="flex items-center gap-2">
+                    <code className="text-xs break-all flex-1">
+                      {window.location.origin}/connect?ref={userData.referralCode}
+                    </code>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={copyReferralLink}
+                      className="shrink-0"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
               <Button 
                 onClick={() => disconnect()} 
                 variant="outline" 

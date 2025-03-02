@@ -201,6 +201,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Add this endpoint after the existing /api/users/register endpoint
+  app.get("/api/users/me", async (req, res) => {
+    try {
+      const walletAddress = req.query.wallet as string;
+      if (!walletAddress) {
+        return res.status(400).json({ message: "Wallet address is required" });
+      }
+
+      const [user] = await db.select()
+        .from(users)
+        .where(eq(users.walletAddress, walletAddress))
+        .limit(1);
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
 
   const httpServer = createServer(app);
   return httpServer;
