@@ -3,7 +3,7 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState, useEffect } from 'react';
-import { Loader2, ExternalLink, Copy } from 'lucide-react';
+import { ExternalLink, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLocation } from 'wouter';
@@ -11,7 +11,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { useQuery } from '@tanstack/react-query';
 
 export default function WalletConnect() {
-  const { connected, publicKey, disconnect, wallet } = useWallet();
+  const { connected, publicKey, disconnect } = useWallet();
   const { toast } = useToast();
   const { isMobile, isInPhantomApp } = useIsMobile();
   const [location] = useLocation();
@@ -32,10 +32,10 @@ export default function WalletConnect() {
   });
 
   useEffect(() => {
-    if (wallet?.adapter.connected && publicKey) {
+    if (connected && publicKey) {
       handleNewConnection(publicKey.toString());
     }
-  }, [wallet?.adapter.connected, publicKey]);
+  }, [connected, publicKey]);
 
   async function handleNewConnection(walletAddress: string) {
     try {
@@ -90,26 +90,19 @@ export default function WalletConnect() {
           <WalletMultiButton className="phantom-button" />
           <p className="text-sm text-muted-foreground text-center">
             {isMobile
-              ? isInPhantomApp 
-                ? "Click 'Connect' to approve the connection"
-                : "Open this page in Phantom mobile app to connect"
+              ? "Open in Phantom App to connect"
               : "Click to connect your Phantom wallet"}
           </p>
-          {isMobile && !isInPhantomApp && (
-            <>
-              <p className="text-xs text-muted-foreground text-center">
-                Once connected, you'll be automatically redirected back to this app
-              </p>
-              <a 
-                href={`https://phantom.app/ul/browse/${window.location.origin}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-xs text-primary hover:underline"
-              >
-                Don't have Phantom? Download it here
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            </>
+          {isMobile && (
+            <a 
+              href={`https://phantom.app/ul/browse/${encodeURIComponent(window.location.origin)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-primary hover:underline flex items-center gap-2"
+            >
+              Open in Phantom App
+              <ExternalLink className="h-4 w-4" />
+            </a>
           )}
           {connected && publicKey && (
             <div className="w-full space-y-4">

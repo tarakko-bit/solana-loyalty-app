@@ -12,33 +12,20 @@ import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { clusterApiUrl } from '@solana/web3.js';
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Import Solana wallet adapter styles
 import '@solana/wallet-adapter-react-ui/styles.css';
 
-// Define the endpoint outside of the component to prevent recreation
 const endpoint = clusterApiUrl('devnet');
-
-// Configure wallet with proper mobile handling
-const wallets = [
-  new PhantomWalletAdapter({ 
-    network: 'devnet',
-    appIdentity: {
-      name: "Solana Loyalty App",
-      icon: "https://raw.githubusercontent.com/solana-labs/wallet-adapter/master/packages/wallets/icons/phantom.svg",
-      url: typeof window !== 'undefined' ? window.location.origin : '',
-    }
-  })
-];
+const wallets = [new PhantomWalletAdapter()];
 
 function Router() {
   return (
     <Switch>
-      {/* Direct admin routes */}
       <Route path="/admin/login" component={AuthPage} />
       <ProtectedRoute path="/admin/dashboard" component={AdminDashboard} />
 
-      {/* Wallet routes */}
       <Route path="/connect">
         <div className="min-h-screen bg-gray-50 p-4">
           <div className="max-w-7xl mx-auto">
@@ -47,12 +34,13 @@ function Router() {
                 Admin Login →
               </a>
             </nav>
-            <WalletConnect />
+            <ErrorBoundary>
+              <WalletConnect />
+            </ErrorBoundary>
           </div>
         </div>
       </Route>
 
-      {/* Default route */}
       <Route path="/">
         <div className="min-h-screen bg-gray-50 p-4">
           <div className="max-w-7xl mx-auto text-center">
@@ -83,7 +71,7 @@ function Router() {
 export default function App() {
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect={true}>
+      <WalletProvider wallets={wallets}>
         <WalletModalProvider>
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
