@@ -15,15 +15,6 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Add CSP headers
-app.use((req, res, next) => {
-  res.setHeader(
-    'Content-Security-Policy-Report-Only',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' " + (process.env.NODE_ENV === 'development' ? 'ws:' : 'wss:')
-  );
-  next();
-});
-
 // Configure PostgreSQL session store with proper error handling
 const PostgresStore = connectPgSimple(session);
 const sessionStore = new PostgresStore({
@@ -33,7 +24,7 @@ const sessionStore = new PostgresStore({
   pruneSessionInterval: 60
 });
 
-sessionStore.on('error', function(error) {
+sessionStore.on('error', function (error) {
   console.error('Session store error:', error);
 });
 
@@ -58,20 +49,59 @@ app.use(sessionMiddleware);
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Debug logging middleware
+// Add CSP headers after session setup
+app.use((req, res, next) => {
+  res.setHeader(
+    'Content-Security-Policy-Report-Only',
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' " + (process.env.NODE_ENV === 'development' ? 'ws:' : 'wss:')
+  );
+  next();
+});
+
+// Debug logging middleware - now after session setup
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
   console.log(`\n=== Request Started ===`);
   console.log(`Path: ${path}`);
+  console.log(`Method: ${req.method}`);
   console.log(`Session ID: ${req.sessionID}`);
   console.log(`Auth Status: ${req.isAuthenticated()}`);
-  console.log(`User: ${req.user ? JSON.stringify(req.user) : 'Not authenticated'}`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
+  console.log(`Headers:`, req.headers);
+
+  // Capture the original response methods
+  const originalEnd = res.end;
+  const originalSend = res.send;
+  const originalJson = res.json;
+
+  res.end = function (chunk, ...args) {
+    console.log(`Response ended with status: ${res.statusCode}`);
+    return originalEnd.apply(res, [chunk, ...args]);
+  };
+
+  res.send = function (body) {
+    console.log(`Response sent with status: ${res.statusCode}`);
+    return originalSend.apply(res, [body]);
+  };
+
+  res.json = function (body) {
+    console.log(`JSON response sent with status: ${res.statusCode}`);
+    return originalJson.apply(res, [body]);
+  };
 
   res.on("finish", () => {
     const duration = Date.now() - start;
     console.log(`\n=== Request Completed ===`);
     console.log(`${req.method} ${path} ${res.statusCode} ${duration}ms [Session: ${req.sessionID}]`);
+    if (res.statusCode >= 400) {
+      console.error(`Error response for ${path}:`, {
+        status: res.statusCode,
+        duration,
+        session: req.sessionID,
+        headers: req.headers
+      });
+    }
     console.log(`========================\n`);
   });
 
@@ -92,35 +122,91 @@ app.use((req, res, next) => {
     const server = await registerRoutes(app);
     console.log("Routes registered");
 
-    // Error handling middleware for API routes
-    app.use('/api', (err: any, _req: Request, res: Response, _next: NextFunction) => {
-      console.error("API Error:", err);
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-      res.status(status).json({ message });
-    });
-
     if (process.env.NODE_ENV === 'production') {
       // Serve static files from the correct dist path
       const distPath = path.join(process.cwd(), 'dist', 'public');
-      console.log('Serving static files from:', distPath);
-      app.use(express.static(distPath));
+      console.log('Production mode: Serving static files from:', distPath);
+
+      // Check if the dist directory exists
+      if (!require('fs').existsSync(distPath)) {
+        console.error('Error: Production build directory not found:', distPath);
+        console.error('Please ensure you have run `npm run build` before starting the server in production mode');
+        process.exit(1);
+      }
+
+      // Serve static files with proper caching
+      app.use(express.static(distPath, {
+        maxAge: '1d',
+        etag: true,
+        lastModified: true
+      }));
 
       // Handle client-side routing for all non-API routes
-      app.get('*', (_req, res) => {
-        const indexPath = path.join(distPath, 'index.html');
-        console.log('Serving index.html from:', indexPath);
-        if (!require('fs').existsSync(indexPath)) {
-          console.error('index.html not found at:', indexPath);
-          return res.status(404).send('index.html not found');
+      app.get('*', (req, res, next) => {
+        // Skip this middleware for API routes
+        if (req.path.startsWith('/api')) {
+          return next();
         }
-        res.sendFile(indexPath);
+
+        const indexPath = path.join(distPath, 'index.html');
+        console.log('Serving index.html for client route:', req.path);
+        console.log('From path:', indexPath);
+
+        // Verify index.html exists
+        if (!require('fs').existsSync(indexPath)) {
+          console.error('Critical Error: index.html not found at:', indexPath);
+          return res.status(500).send('Server configuration error: index.html not found');
+        }
+
+        res.sendFile(indexPath, (err) => {
+          if (err) {
+            console.error('Error sending index.html:', err);
+            res.status(500).send('Error loading application');
+          }
+        });
       });
     } else {
       console.log("Setting up Vite development server...");
       await setupVite(app, server);
       console.log("Vite development server configured");
     }
+
+    // Error handling middleware for API routes
+    app.use('/api', (err: Error, req: Request, res: Response, next: NextFunction) => {
+      console.error('API Error:', {
+        error: err,
+        stack: err.stack,
+        path: req.path,
+        method: req.method,
+        sessionId: req.sessionID,
+        headers: req.headers,
+        body: req.body
+      });
+
+      const message = err.message || 'Internal Server Error';
+      const status = err instanceof Error ? 500 : (err as any).status || 500;
+
+      res.status(status).json({ message });
+    });
+
+    // Final error handler for unhandled errors
+    app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+      console.error('Unhandled error:', {
+        error: err,
+        stack: err.stack,
+        path: req.path,
+        method: req.method,
+        headers: req.headers,
+        body: req.body
+      });
+
+      // Don't expose internal error details in production
+      const message = process.env.NODE_ENV === 'production'
+        ? 'Internal Server Error'
+        : err.message || 'Internal Server Error';
+
+      res.status(500).json({ message });
+    });
 
     // Use Replit's port or fallback to 5000
     const port = process.env.PORT || 5000;
