@@ -90,12 +90,20 @@ app.use((req, res, next) => {
   });
 
   if (process.env.NODE_ENV === 'production') {
-    // Serve static files
-    app.use(express.static('dist'));
+    // Serve static files from the correct dist path
+    const distPath = path.join(process.cwd(), 'dist', 'public');
+    console.log('Serving static files from:', distPath);
+    app.use(express.static(distPath));
 
-    // Handle client-side routing
+    // Handle client-side routing - this must come after API routes
     app.get('*', (_req, res) => {
-      res.sendFile(path.resolve('dist', 'index.html'));
+      const indexPath = path.join(distPath, 'index.html');
+      console.log('Serving index.html from:', indexPath);
+      if (!require('fs').existsSync(indexPath)) {
+        console.error('index.html not found at:', indexPath);
+        return res.status(404).send('index.html not found');
+      }
+      res.sendFile(indexPath);
     });
   } else {
     console.log("Setting up Vite development server...");
