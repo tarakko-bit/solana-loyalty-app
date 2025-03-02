@@ -12,7 +12,6 @@ import { useQuery } from '@tanstack/react-query';
 
 export default function WalletConnect() {
   const { connected, publicKey, disconnect, wallet } = useWallet();
-  const [connecting, setConnecting] = useState(false);
   const { toast } = useToast();
   const { isMobile, isInPhantomApp } = useIsMobile();
   const [location] = useLocation();
@@ -102,7 +101,7 @@ export default function WalletConnect() {
                 Once connected, you'll be automatically redirected back to this app
               </p>
               <a 
-                href="https://phantom.app/"
+                href={`https://phantom.app/ul/browse/${window.location.origin}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-xs text-primary hover:underline"
