@@ -6,5 +6,3 @@ dist
 .gitignore
 .DS_Store
 README.md
-docker-compose.yml
-Dockerfile
