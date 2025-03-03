@@ -16,6 +16,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Trust first proxy in production
 app.set('trust proxy', 1);
 
 // Configure PostgreSQL session store with proper error handling
@@ -31,7 +32,7 @@ sessionStore.on('error', function (error) {
   console.error('Session store error:', error);
 });
 
-// Session setup before routes
+// Session setup with secure settings for production
 const sessionMiddleware = session({
   store: sessionStore,
   secret: process.env.SESSION_SECRET || "super-secret-key",
@@ -51,16 +52,7 @@ app.use(sessionMiddleware);
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Add CSP headers after session setup
-app.use((req, res, next) => {
-  res.setHeader(
-    'Content-Security-Policy-Report-Only',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' " + (process.env.NODE_ENV === 'development' ? 'ws:' : 'wss:')
-  );
-  next();
-});
-
-// Debug logging middleware - now after session setup
+// Debug logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -70,27 +62,6 @@ app.use((req, res, next) => {
   console.log(`Session ID: ${req.sessionID}`);
   console.log(`Auth Status: ${req.isAuthenticated()}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
-  console.log(`Headers:`, req.headers);
-
-  // Capture the original response methods
-  const originalEnd = res.end;
-  const originalSend = res.send;
-  const originalJson = res.json;
-
-  res.end = function (chunk, ...args) {
-    console.log(`Response ended with status: ${res.statusCode}`);
-    return originalEnd.apply(res, [chunk, ...args]);
-  };
-
-  res.send = function (body) {
-    console.log(`Response sent with status: ${res.statusCode}`);
-    return originalSend.apply(res, [body]);
-  };
-
-  res.json = function (body) {
-    console.log(`JSON response sent with status: ${res.statusCode}`);
-    return originalJson.apply(res, [body]);
-  };
 
   res.on("finish", () => {
     const duration = Date.now() - start;
@@ -100,13 +71,21 @@ app.use((req, res, next) => {
       console.error(`Error response for ${path}:`, {
         status: res.statusCode,
         duration,
-        session: req.sessionID,
-        headers: req.headers
+        session: req.sessionID
       });
     }
     console.log(`========================\n`);
   });
 
+  next();
+});
+
+// Add CSP headers
+app.use((req, res, next) => {
+  res.setHeader(
+    'Content-Security-Policy-Report-Only',
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' " + (process.env.NODE_ENV === 'development' ? 'ws:' : 'wss:')
+  );
   next();
 });
 
@@ -119,51 +98,38 @@ app.use((req, res, next) => {
     await initializeAdmins();
     console.log("Admin accounts initialized");
 
-    // Register routes first to ensure API endpoints take precedence
+    // Register API routes first
     console.log("Registering routes...");
     const server = await registerRoutes(app);
     console.log("Routes registered");
 
     if (process.env.NODE_ENV === 'production') {
-      // Serve static files from the correct dist path
+      // Configure production static file serving
       const distPath = path.join(process.cwd(), 'dist', 'public');
       console.log('Production mode: Serving static files from:', distPath);
 
-      // Check if the dist directory exists
       if (!fs.existsSync(distPath)) {
-        console.error('Error: Production build directory not found:', distPath);
-        console.error('Please ensure you have run `npm run build` before starting the server in production mode');
-        process.exit(1);
+        throw new Error(`Production build directory not found: ${distPath}`);
       }
 
-      // Serve static files with proper caching
+      // Serve static files with aggressive caching
       app.use(express.static(distPath, {
         maxAge: '1d',
         etag: true,
-        lastModified: true
+        lastModified: true,
+        index: false // Don't serve index.html automatically
       }));
 
-      // Handle client-side routing for all non-API routes
+      // Handle client-side routing
       app.get('*', (req, res, next) => {
-        // Skip this middleware for API routes
         if (req.path.startsWith('/api')) {
           return next();
         }
 
-        const indexPath = path.join(distPath, 'index.html');
-        console.log('Serving index.html for client route:', req.path);
-        console.log('From path:', indexPath);
-
-        // Verify index.html exists
-        if (!fs.existsSync(indexPath)) {
-          console.error('Critical Error: index.html not found at:', indexPath);
-          return res.status(500).send('Server configuration error: index.html not found');
-        }
-
-        res.sendFile(indexPath, (err) => {
+        res.sendFile(path.join(distPath, 'index.html'), err => {
           if (err) {
-            console.error('Error sending index.html:', err);
-            res.status(500).send('Error loading application');
+            console.error('Error serving index.html:', err);
+            next(err);
           }
         });
       });
@@ -173,44 +139,29 @@ app.use((req, res, next) => {
       console.log("Vite development server configured");
     }
 
-    // Error handling middleware for API routes
-    app.use('/api', (err: Error, req: Request, res: Response, next: NextFunction) => {
-      console.error('API Error:', {
-        error: err,
+    // Error handling middleware
+    app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+      console.error('Server error:', {
+        error: err.message,
         stack: err.stack,
         path: req.path,
         method: req.method,
-        sessionId: req.sessionID,
-        headers: req.headers,
-        body: req.body
+        sessionId: req.sessionID
       });
 
-      const message = err.message || 'Internal Server Error';
-      const status = err instanceof Error ? 500 : (err as any).status || 500;
-
-      res.status(status).json({ message });
+      // Send appropriate error response
+      if (req.path.startsWith('/api')) {
+        res.status(500).json({ 
+          message: process.env.NODE_ENV === 'production' 
+            ? 'Internal server error' 
+            : err.message 
+        });
+      } else {
+        res.status(500).send('Internal Server Error');
+      }
     });
 
-    // Final error handler for unhandled errors
-    app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-      console.error('Unhandled error:', {
-        error: err,
-        stack: err.stack,
-        path: req.path,
-        method: req.method,
-        headers: req.headers,
-        body: req.body
-      });
-
-      // Don't expose internal error details in production
-      const message = process.env.NODE_ENV === 'production'
-        ? 'Internal Server Error'
-        : err.message || 'Internal Server Error';
-
-      res.status(500).json({ message });
-    });
-
-    // Use Replit's port or fallback to 5000
+    // Start server
     const port = process.env.PORT || 5000;
     server.listen({
       port,
